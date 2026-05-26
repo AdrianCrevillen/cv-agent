@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CV Agent — Pregúntale a mi CV</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f4;
+      --bg-tertiary: #eeede9;
+      --bg-info: #e6f1fb;
+      --bg-danger: #fcebeb;
+      --text-primary: #1a1a19;
+      --text-secondary: #6b6b68;
+      --text-info: #185fa5;
+      --text-success: #3b6d11;
+      --text-danger: #a32d2d;
+      --border-light: rgba(0,0,0,0.12);
+      --border-medium: rgba(0,0,0,0.22);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1e1e1c;
+        --bg-secondary: #2a2a28;
+        --bg-tertiary: #333330;
+        --bg-info: #0c447c22;
+        --bg-danger: #501313aa;
+        --text-primary: #f0ede8;
+        --text-secondary: #9e9c96;
+        --text-info: #85b7eb;
+        --text-success: #97c459;
+        --text-danger: #f09595;
+        --border-light: rgba(255,255,255,0.10);
+        --border-medium: rgba(255,255,255,0.20);
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    #app {
+      width: 100%;
+      max-width: 640px;
+    }
+
+    header {
+      margin-bottom: 2rem;
+    }
+    header h1 {
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    header p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    /* --- Drop zone --- */
+    #drop-zone {
+      border: 1.5px dashed var(--border-medium);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 1.5rem;
+      background: var(--bg-secondary);
+    }
+    #drop-zone:hover { background: var(--bg-tertiary); }
+    #drop-zone.has-file {
+      border-style: solid;
+      border-color: var(--text-info);
+    }
+    #drop-zone .icon {
+      font-size: 32px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    #drop-zone p { font-size: 14px; color: var(--text-secondary); }
+    #drop-zone .file-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-info);
+      margin-top: 6px;
+    }
+    #file-input { display: none; }
+
+    /* --- Chat section --- */
+    #chat-section { display: none; }
+    #chat-section.visible { display: block; }
+
+    #cv-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+    #cv-status i { font-size: 16px; color: var(--text-success); }
+
+    #suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 1rem;
+    }
+    .suggestion {
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: 99px;
+      border: 0.5px solid var(--border-medium);
+      background: var(--bg-primary);
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: background 0.1s;
+      font-family: inherit;
+    }
+    .suggestion:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    #messages {
+      border: 0.5px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      background: var(--bg-primary);
+      min-height: 280px;
+      max-height: 420px;
+      overflow-y: auto;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .msg {
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      max-width: 85%;
+    }
+    .msg.user {
+      background: var(--bg-info);
+      color: var(--text-primary);
+      align-self: flex-end;
+    }
+    .msg.assistant {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      align-self: flex-start;
+    }
+    .msg.system {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-align: center;
+      align-self: center;
+      background: none;
+      padding: 2px 0;
+    }
+    .msg.typing {
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    #input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+    #user-input {
+      flex: 1;
+      resize: none;
+      min-height: 44px;
+      max-height: 120px;
+      padding: 10px 12px;
+      font-size: 14px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-medium);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: inherit;
+      line-height: 1.5;
+    }
+    #user-input:focus {
+      outline: none;
+      border-color: var(--text-info);
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-medium);
+      background: var(--bg-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: var(--text-secondary);
+      transition: background 0.1s, color 0.1s;
+      flex-shrink: 0;
+    }
+    .icon-btn:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+    .icon-btn.recording {
+      background: var(--bg-danger);
+      color: var(--text-danger);
+      border-color: var(--text-danger);
+    }
+
+    /* --- API key banner --- */
+    #api-key-banner {
+      background: var(--bg-info);
+      border: 0.5px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text-info);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #api-key-banner a { color: var(--text-info); }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Pregúntale a mi CV</h1>
+    <p>Sube un CV en PDF y hazle preguntas por texto o por voz</p>
+  </header>
+
+  <!-- IMPORTANTE: reemplaza el valor de abajo con tu API key real de Anthropic -->
+  <!-- Consíguela en: https://console.anthropic.com/settings/keys -->
+  <div id="api-key-banner">
+    <i class="ti ti-info-circle"></i>
+    Para que funcione necesitas una API key de Anthropic.
+    <a href="https://console.anthropic.com/settings/keys" target="_blank">Consíguela aquí →</a>
+  </div>
+
+  <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div class="icon"><i class="ti ti-file-text"></i></div>
+    <p>Arrastra tu CV aquí o haz clic para subir</p>
+    <p style="font-size:12px; margin-top:4px;">Solo PDF</p>
+    <div class="file-name" id="file-label"></div>
+  </div>
+  <input type="file" id="file-input" accept=".pdf" />
+
+  <div id="chat-section">
+    <div id="cv-status">
+      <i class="ti ti-circle-check"></i>
+      <span id="cv-status-text">CV cargado</span>
+    </div>
+
+    <div id="suggestions">
+      <button class="suggestion" onclick="ask('¿Qué experiencia laboral tiene?')">¿Qué experiencia tiene?</button>
+      <button class="suggestion" onclick="ask('¿Qué tecnologías domina?')">¿Qué tecnologías domina?</button>
+      <button class="suggestion" onclick="ask('¿Para qué tipo de puesto encaja mejor?')">¿Para qué puesto encaja?</button>
+      <button class="suggestion" onclick="ask('¿Cuál es su formación académica?')">Formación académica</button>
+      <button class="suggestion" onclick="ask('¿Tiene experiencia en proyectos de IA?')">¿Proyectos de IA?</button>
+    </div>
+
+    <div id="messages">
+      <div class="msg system">Listo — pregúntame lo que quieras sobre este CV</div>
+    </div>
+
+    <div id="input-row">
+      <textarea id="user-input" placeholder="Escribe una pregunta..." rows="1"></textarea>
+      <button class="icon-btn" id="mic-btn" title="Hablar" onclick="toggleVoice()">
+        <i class="ti ti-microphone"></i>
+      </button>
+      <button class="icon-btn" title="Enviar" onclick="sendMessage()">
+        <i class="ti ti-arrow-right"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ⚠️ IMPORTANTE: pon aquí tu API key de Anthropic
+  // En producción/portfolio usa un proxy o variables de entorno
+  const API_KEY = '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';
+
+  let cvText = '';
+  let isRecording = false;
+  let recognition = null;
+  const messages = [];
+
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const chatSection = document.getElementById('chat-section');
+  const messagesEl = document.getElementById('messages');
+  const userInput = document.getElementById('user-input');
+  const micBtn = document.getElementById('mic-btn');
+  const fileLabel = document.getElementById('file-label');
+  const cvStatusText = document.getElementById('cv-status-text');
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.style.background = 'var(--bg-tertiary)';
+  });
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.style.background = '';
+  });
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  userInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  userInput.addEventListener('input', () => {
+    userInput.style.height = 'auto';
+    userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
+  });
+
+  async function handleFile(file) {
+    if (!file.name.endsWith('.pdf')) {
+      alert('Por favor sube un PDF');
+      return;
+    }
+    fileLabel.textContent = file.name;
+    dropZone.classList.add('has-file');
+    chatSection.classList.add('visible');
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const base64 = ev.target.result.split(',')[1];
+      addMsg('system', 'Leyendo el CV...');
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': API_KEY,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1000,
+            system: 'Extract the full text content from this CV/resume PDF in a structured way. Return only the extracted text, no commentary.',
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+                { type: 'text', text: 'Extract all text from this CV.' }
+              ]
+            }]
+          })
+        });
+        const data = await res.json();
+        cvText = data.content?.map(b => b.text || '').join('') || '';
+        cvStatusText.textContent = file.name;
+        const systemMsg = messagesEl.querySelector('.msg.system:last-child');
+        if (systemMsg) systemMsg.textContent = 'CV cargado — empieza a preguntar';
+      } catch (err) {
+        addMsg('system', 'Error al leer el PDF. Comprueba tu API key.');
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function addMsg(role, text) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  function ask(q) {
+    userInput.value = q;
+    sendMessage();
+  }
+
+  async function sendMessage() {
+    const text = userInput.value.trim();
+    if (!text || !cvText) return;
+    userInput.value = '';
+    userInput.style.height = 'auto';
+
+    addMsg('user', text);
+    messages.push({ role: 'user', content: text });
+
+    const typing = addMsg('assistant typing', 'Pensando...');
+
+    try {
+      const history = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
+      const lastUser = history[history.length - 1];
+      lastUser.content = `CV content:\n${cvText}\n\n---\nQuestion: ${lastUser.content}`;
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': API_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: 'You are a helpful assistant that answers questions about a person\'s CV/resume. Answer concisely and clearly. Be direct and specific. If asked about fit for a job, give an honest assessment. Respond in the same language as the question.',
+          messages: history
+        })
+      });
+      const data = await res.json();
+      const reply = data.content?.map(b => b.text || '').join('') || 'Sin respuesta';
+      typing.className = 'msg assistant';
+      typing.textContent = reply;
+      messages.push({ role: 'assistant', content: reply });
+    } catch (err) {
+      typing.className = 'msg assistant';
+      typing.textContent = 'Error al conectar. Comprueba tu API key.';
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function toggleVoice() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome.');
+      return;
+    }
+    if (isRecording) {
+      recognition?.stop();
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.lang = 'es-ES';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      isRecording = true;
+      micBtn.classList.add('recording');
+      micBtn.querySelector('i').className = 'ti ti-square';
+    };
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      userInput.value = transcript;
+      sendMessage();
+    };
+    recognition.onend = () => {
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      micBtn.querySelector('i').className = 'ti ti-microphone';
+    };
+    recognition.onerror = () => {
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      micBtn.querySelector('i').className = 'ti ti-microphone';
+    };
+    recognition.start();
+  }
+</script>
+</body>
+</html>
